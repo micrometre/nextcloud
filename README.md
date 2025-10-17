@@ -23,15 +23,10 @@ This repository contains examples for interacting with Nextcloud using JavaScrip
 
 ## Usage
 
-### Option 1: Using Axios (Recommended for Node.js)
-
-```bash
-node list-folders-axios.js
-```
 
 This uses the `axios` library for HTTP requests and `xml2js` for parsing XML responses.
 
-### Option 2: Using Fetch API
+### Using Fetch API
 
 ```bash
 node list-folders.js
