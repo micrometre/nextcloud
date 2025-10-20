@@ -1,0 +1,6 @@
+---
+# handlers file for nextcloud
+
+- name: restart nextcloud
+  ansible.builtin.command: snap restart nextcloud
+  become: yes

@@ -1,0 +1,33 @@
+---
+# Example variables file for Nextcloud deployment
+# Copy this file and customize for your environment
+
+# ======================
+# REQUIRED VARIABLES
+# ======================
+
+# Nextcloud administrator credentials
+# WARNING: Use strong passwords and consider using Ansible Vault for production
+nextcloud_admin_user: "admin"
+nextcloud_admin_password: "ChangeThisPassword123!"
+
+# ======================
+# SSL/TLS CONFIGURATION
+# ======================
+
+# SSL Type: "letsencrypt", "selfsigned", or "none"
+nextcloud_ssl_type: "selfsigned"
+
+# For Let's Encrypt SSL (uncomment if using letsencrypt)
+# nextcloud_domain: "cloud.example.com"
+# nextcloud_letsencrypt_email: "admin@example.com"
+
+# ======================
+# OPTIONAL SETTINGS
+# ======================
+
+# Additional IP address or domain to trust
+# nextcloud_ip_address: "192.168.1.100"
+
+# Configure firewall rules (default: true)
+nextcloud_configure_firewall: true

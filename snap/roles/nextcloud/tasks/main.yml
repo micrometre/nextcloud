@@ -1,0 +1,110 @@
+---
+# tasks file for nextcloud
+
+- name: Install snapd (if not already present)
+  ansible.builtin.apt:
+    name: snapd
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Install Nextcloud snap
+  community.general.snap:
+    name: nextcloud
+    state: present
+  become: yes
+
+- name: Wait for Nextcloud snap to be ready
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: Check if Nextcloud is already configured
+  ansible.builtin.shell: |
+    snap changes nextcloud | grep -q "Done.*Install" && echo "installed" || echo "not_installed"
+  register: nextcloud_status
+  changed_when: false
+  become: yes
+
+- name: Configure Nextcloud with admin account
+  ansible.builtin.command: >
+    nextcloud.manual-install 
+    {{ nextcloud_admin_user }} 
+    {{ nextcloud_admin_password }}
+  become: yes
+  when: nextcloud_admin_user is defined and nextcloud_admin_password is defined
+  no_log: true
+  register: nextcloud_install_result
+  failed_when: 
+    - nextcloud_install_result.rc != 0
+    - "'Nextcloud was successfully installed' not in nextcloud_install_result.stdout"
+  changed_when: "'Nextcloud was successfully installed' in nextcloud_install_result.stdout"
+
+- name: Get current trusted domains
+  ansible.builtin.command: nextcloud.occ config:system:get trusted_domains
+  become: yes
+  register: current_trusted_domains
+  changed_when: false
+
+- name: Add domain to trusted domains (index 1)
+  ansible.builtin.command: >
+    nextcloud.occ config:system:set trusted_domains 1 --value={{ nextcloud_domain }}
+  become: yes
+  when: 
+    - nextcloud_domain is defined
+    - nextcloud_domain not in current_trusted_domains.stdout
+  register: domain_added
+  changed_when: "'set to string' in domain_added.stdout"
+
+- name: Add IP address to trusted domains (index 2) if defined
+  ansible.builtin.command: >
+    nextcloud.occ config:system:set trusted_domains 2 --value={{ nextcloud_ip_address }}
+  become: yes
+  when: 
+    - nextcloud_ip_address is defined
+    - nextcloud_ip_address not in current_trusted_domains.stdout
+  register: ip_added
+  changed_when: "'set to string' in ip_added.stdout"
+
+- name: Configure firewall for HTTP and HTTPS
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - "80"
+    - "443"
+  become: yes
+  when: nextcloud_configure_firewall | default(true)
+
+- name: Enable HTTPS with Let's Encrypt
+  ansible.builtin.expect:
+    command: nextcloud.enable-https lets-encrypt
+    responses:
+      'Have you met these requirements\\? \\(y/n\\)': 'y'
+      'Please enter an email address.*:': '{{ nextcloud_letsencrypt_email }}'
+      'Please enter your domain name.*:': '{{ nextcloud_domain }}'
+    timeout: 300
+  become: yes
+  when: 
+    - nextcloud_ssl_type == "letsencrypt"
+    - nextcloud_domain is defined
+    - nextcloud_letsencrypt_email is defined
+  register: letsencrypt_result
+  failed_when: 
+    - letsencrypt_result.rc != 0
+    - "'Restarting apache' not in letsencrypt_result.stdout"
+
+- name: Enable HTTPS with self-signed certificate
+  ansible.builtin.command: nextcloud.enable-https self-signed
+  become: yes
+  when: nextcloud_ssl_type == "selfsigned"
+  register: selfsigned_result
+  changed_when: "'Restarting apache' in selfsigned_result.stdout"
+
+- name: Display Nextcloud access information
+  ansible.builtin.debug:
+    msg:
+      - "Nextcloud has been successfully installed and configured!"
+      - "Access URL: https://{{ nextcloud_domain | default(ansible_default_ipv4.address) }}"
+      - "Admin Username: {{ nextcloud_admin_user }}"
+      - "Please keep your admin password secure."

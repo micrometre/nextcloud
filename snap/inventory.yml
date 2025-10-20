@@ -1,0 +1,25 @@
+all:
+  hosts:
+    local:
+      ansible_connection: local
+      ansible_host: localhost
+      
+      # Nextcloud Configuration Variables
+      # Customize these for your deployment
+      nextcloud_admin_user: "admin"
+      nextcloud_admin_password: "ChangeThisSecurePassword123!"
+      
+      # SSL Configuration
+      # Options: "letsencrypt", "selfsigned", or "none"
+      nextcloud_ssl_type: "selfsigned"
+      
+      # For Let's Encrypt SSL (uncomment and configure if needed)
+      # nextcloud_domain: "cloud.example.com"
+      # nextcloud_letsencrypt_email: "admin@example.com"
+      
+      # Optional: Add IP address to trusted domains
+      # nextcloud_ip_address: "{{ ansible_default_ipv4.address }}"
+      
+      # Firewall configuration
+      nextcloud_configure_firewall: true
+

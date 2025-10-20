@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  author: Ansible Automation
+  description: Ansible role for deploying Nextcloud via snap on Ubuntu 22.04
+  company: 
+  
+  license: MIT
+  
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy  # 22.04
+        - focal  # 20.04
+  
+  galaxy_tags:
+    - nextcloud
+    - cloud
+    - storage
+    - snap
+    - file-sharing
+    - collaboration
+
+dependencies: []
