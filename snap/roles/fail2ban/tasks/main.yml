@@ -1,0 +1,125 @@
+---
+# tasks file for fail2ban
+
+- name: Install fail2ban package
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Ensure fail2ban directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/fail2ban/filter.d
+    - /etc/fail2ban/jail.d
+  become: yes
+
+- name: Detect Nextcloud snap log location
+  ansible.builtin.shell: |
+    if [ -d "/var/snap/nextcloud/current" ]; then
+      echo "/var/snap/nextcloud/current/logs/nextcloud.log"
+    else
+      echo "/var/www/nextcloud/data/nextcloud.log"
+    fi
+  register: detected_logpath
+  changed_when: false
+  when: fail2ban_nextcloud_logpath == "auto"
+
+- name: Set Nextcloud log path
+  ansible.builtin.set_fact:
+    fail2ban_nextcloud_logpath: "{{ detected_logpath.stdout }}"
+  when: fail2ban_nextcloud_logpath == "auto"
+
+- name: Verify Nextcloud log file exists
+  ansible.builtin.stat:
+    path: "{{ fail2ban_nextcloud_logpath }}"
+  register: nextcloud_log
+  become: yes
+
+- name: Create Nextcloud log directory if it doesn't exist
+  ansible.builtin.file:
+    path: "{{ fail2ban_nextcloud_logpath | dirname }}"
+    state: directory
+    mode: '0755'
+  become: yes
+  when: not nextcloud_log.stat.exists
+
+- name: Create placeholder Nextcloud log file if it doesn't exist
+  ansible.builtin.file:
+    path: "{{ fail2ban_nextcloud_logpath }}"
+    state: touch
+    mode: '0640'
+  become: yes
+  when: not nextcloud_log.stat.exists
+
+- name: Display warning if log file was created
+  ansible.builtin.debug:
+    msg: 
+      - "NOTE: Nextcloud log file did not exist at {{ fail2ban_nextcloud_logpath }}"
+      - "A placeholder log file has been created so fail2ban can start."
+      - "It will be populated automatically when Nextcloud is installed and running."
+  when: not nextcloud_log.stat.exists
+
+- name: Deploy Nextcloud fail2ban filter
+  ansible.builtin.template:
+    src: nextcloud.conf.j2
+    dest: /etc/fail2ban/filter.d/nextcloud.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: restart fail2ban
+
+- name: Deploy Nextcloud fail2ban jail configuration
+  ansible.builtin.template:
+    src: nextcloud.local.j2
+    dest: /etc/fail2ban/jail.d/nextcloud.local
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: restart fail2ban
+
+- name: Ensure fail2ban service is enabled and started
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: started
+    enabled: yes
+  become: yes
+  register: fail2ban_started
+
+- name: Wait for fail2ban to start
+  ansible.builtin.pause:
+    seconds: 3
+  when: fail2ban_started is defined and fail2ban_started.changed
+
+- name: Check Nextcloud jail status
+  ansible.builtin.command: fail2ban-client status nextcloud
+  register: jail_status
+  become: yes
+  changed_when: false
+  failed_when: false
+
+- name: Display fail2ban Nextcloud jail status
+  ansible.builtin.debug:
+    msg: "{{ jail_status.stdout_lines }}"
+  when: jail_status.rc == 0
+
+- name: Display fail2ban installation summary
+  ansible.builtin.debug:
+    msg:
+      - "Fail2ban for Nextcloud has been configured successfully!"
+      - "Filter: /etc/fail2ban/filter.d/nextcloud.conf"
+      - "Jail: /etc/fail2ban/jail.d/nextcloud.local"
+      - "Log path: {{ fail2ban_nextcloud_logpath }}"
+      - "Max retries: {{ fail2ban_maxretry }}"
+      - "Ban time: {{ fail2ban_bantime }} seconds ({{ (fail2ban_bantime / 3600) | int }} hours)"
+      - "Find time: {{ fail2ban_findtime }} seconds ({{ (fail2ban_findtime / 3600) | int }} hours)"
+      - ""
+      - "Check jail status: sudo fail2ban-client status nextcloud"
+      - "View banned IPs: sudo fail2ban-client get nextcloud banip"
+      - "Unban an IP: sudo fail2ban-client set nextcloud unbanip <IP>"

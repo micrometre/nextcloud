@@ -1,0 +1,20 @@
+# Fail2Ban jail configuration for Nextcloud
+# Managed by Ansible - Do not edit manually
+#
+# This jail protects against brute force attacks on the Nextcloud instance
+# by monitoring the Nextcloud log file for failed login attempts and
+# untrusted domain access attempts.
+
+[nextcloud]
+backend = {{ fail2ban_backend }}
+enabled = {{ fail2ban_nextcloud_enabled | lower }}
+port = {{ fail2ban_nextcloud_ports }}
+protocol = {{ fail2ban_protocol }}
+filter = nextcloud
+maxretry = {{ fail2ban_maxretry }}
+bantime = {{ fail2ban_bantime }}
+findtime = {{ fail2ban_findtime }}
+logpath = {{ fail2ban_nextcloud_logpath }}
+{% if fail2ban_ignoreip is defined and fail2ban_ignoreip %}
+ignoreip = {{ fail2ban_ignoreip | join(' ') }}
+{% endif %}

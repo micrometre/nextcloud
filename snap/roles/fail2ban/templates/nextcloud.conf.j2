@@ -1,0 +1,13 @@
+{% raw %}
+# Fail2Ban filter for Nextcloud
+# Based on: https://docs.nextcloud.com/server/23/admin_manual/installation/harden_server.html
+#
+# This filter monitors the Nextcloud log file for failed login attempts
+# and attempts to access the server using an untrusted domain.
+
+[Definition]
+_groupsre = (?:(?:,?\s*"\w+":(?:"[^"]+"|\w+))*)
+failregex = ^\{%(_groupsre)s,?\s*"remoteAddr":"<HOST>"%(_groupsre)s,?\s*"message":"Login failed:
+            ^\{%(_groupsre)s,?\s*"remoteAddr":"<HOST>"%(_groupsre)s,?\s*"message":"Trusted domain error.
+datepattern = ,?\s*"time"\s*:\s*"%%Y-%%m-%%d[T ]%%H:%%M:%%S(%%z)?"
+{% endraw %}

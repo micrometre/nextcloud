@@ -1,6 +1,6 @@
 # Quick Start Guide - Nextcloud Deployment
 
-Follow these steps to deploy Nextcloud on your Ubuntu 22.04 server.
+Follow these steps to deploy Nextcloud with fail2ban protection on your Ubuntu 22.04 server.
 
 ## Step 1: Install Ansible Collections
 
@@ -37,6 +37,14 @@ nextcloud_letsencrypt_email: "your-email@example.com"
 nextcloud_ssl_type: "selfsigned"
 ```
 
+### Optional: Configure Fail2ban
+
+```yaml
+fail2ban_maxretry: 3
+fail2ban_bantime: 86400    # 24 hours
+fail2ban_findtime: 43200   # 12 hours
+```
+
 ## Step 3: Check Syntax (Optional)
 
 ```bash
@@ -45,14 +53,25 @@ make check-syntax
 
 ## Step 4: Deploy Nextcloud
 
-```bash
-make setup-deployment
-```
-
-Or run everything at once:
+### Deploy Everything (Recommended)
 
 ```bash
 make setup-all
+```
+
+This will:
+1. Install required Ansible collections
+2. Deploy and configure Nextcloud
+3. Set up fail2ban protection
+
+### Or Deploy Components Separately
+
+```bash
+# Deploy Nextcloud only
+make setup-deployment
+
+# Deploy fail2ban only
+make setup-fail2ban
 ```
 
 ## Step 5: Access Your Nextcloud

@@ -10,7 +10,11 @@ check-syntax:
 setup-deployment:
 	ansible-playbook -i inventory.yml main.yml --tags setup_nextcloud
 
-# Full setup (install requirements + deploy)
-setup-all: install-requirements setup-deployment
+# Deploy fail2ban for Nextcloud
+setup-fail2ban:
+	ansible-playbook -i inventory.yml main.yml --tags setup_fail2ban
 
-.PHONY: install-requirements check-syntax setup-deployment setup-all
+# Full setup (install requirements + deploy Nextcloud + fail2ban)
+setup-all: install-requirements setup-deployment setup-fail2ban
+
+.PHONY: install-requirements check-syntax setup-deployment setup-fail2ban setup-all

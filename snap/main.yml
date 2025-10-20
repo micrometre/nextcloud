@@ -3,3 +3,9 @@
   roles:
     - nextcloud
   tags: setup_nextcloud
+
+- name: playbook to setup fail2ban protection for nextcloud
+  hosts: localhost
+  roles:
+    - fail2ban
+  tags: setup_fail2ban

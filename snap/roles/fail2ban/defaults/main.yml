@@ -1,0 +1,38 @@
+---
+# defaults file for fail2ban
+
+# Fail2ban backend (auto, systemd, polling)
+fail2ban_backend: "auto"
+
+# Enable Nextcloud jail
+fail2ban_nextcloud_enabled: true
+
+# Network ports to protect (HTTP and HTTPS)
+fail2ban_nextcloud_ports: "80,443"
+
+# Protocol
+fail2ban_protocol: "tcp"
+
+# Maximum number of failed login attempts before banning
+# Default: 3 attempts
+fail2ban_maxretry: 3
+
+# Ban time in seconds
+# Default: 86400 seconds (24 hours)
+fail2ban_bantime: 86400
+
+# Time window in seconds to count failed attempts
+# Default: 43200 seconds (12 hours)
+fail2ban_findtime: 43200
+
+# Path to Nextcloud log file
+# Set to "auto" to auto-detect snap or standard installation
+# For snap: /var/snap/nextcloud/current/logs/nextcloud.log
+# For standard: /var/www/nextcloud/data/nextcloud.log
+fail2ban_nextcloud_logpath: "auto"
+
+# IP addresses to ignore (whitelist)
+# Example: ['127.0.0.1', '192.168.1.0/24']
+fail2ban_ignoreip: 
+  - "127.0.0.1/8"
+  - "::1"

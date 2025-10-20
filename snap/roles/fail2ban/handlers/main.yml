@@ -1,0 +1,14 @@
+---
+# handlers file for fail2ban
+
+- name: restart fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: restarted
+  become: yes
+
+- name: reload fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: reloaded
+  become: yes
