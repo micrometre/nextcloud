@@ -18,12 +18,22 @@
   ansible.builtin.pause:
     seconds: 10
 
-- name: Check if Nextcloud is already configured
-  ansible.builtin.shell: |
-    snap changes nextcloud | grep -q "Done.*Install" && echo "installed" || echo "not_installed"
-  register: nextcloud_status
+- name: Check if Nextcloud is already installed
+  ansible.builtin.command: nextcloud.occ status --output=json
+  register: nextcloud_status_check
   changed_when: false
   become: yes
+  failed_when: false
+
+- name: Parse Nextcloud installation status
+  ansible.builtin.set_fact:
+    nextcloud_is_installed: "{{ (nextcloud_status_check.stdout | from_json).installed | default(false) }}"
+  when: nextcloud_status_check.rc == 0
+
+- name: Set installation status if check failed
+  ansible.builtin.set_fact:
+    nextcloud_is_installed: false
+  when: nextcloud_status_check.rc != 0
 
 - name: Configure Nextcloud with admin account
   ansible.builtin.command: >
@@ -31,13 +41,21 @@
     {{ nextcloud_admin_user }} 
     {{ nextcloud_admin_password }}
   become: yes
-  when: nextcloud_admin_user is defined and nextcloud_admin_password is defined
+  when: 
+    - nextcloud_admin_user is defined 
+    - nextcloud_admin_password is defined
+    - not nextcloud_is_installed
   no_log: true
   register: nextcloud_install_result
   failed_when: 
     - nextcloud_install_result.rc != 0
     - "'Nextcloud was successfully installed' not in nextcloud_install_result.stdout"
   changed_when: "'Nextcloud was successfully installed' in nextcloud_install_result.stdout"
+
+- name: Display message if Nextcloud already installed
+  ansible.builtin.debug:
+    msg: "Nextcloud is already installed. Skipping manual-install."
+  when: nextcloud_is_installed
 
 - name: Get current trusted domains
   ansible.builtin.command: nextcloud.occ config:system:get trusted_domains
