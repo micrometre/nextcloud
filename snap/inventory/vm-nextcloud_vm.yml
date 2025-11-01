@@ -1,0 +1,15 @@
+# Individual inventory for VM: nextcloud_vm
+# Created: 2025-11-01T18:19:08Z
+all:
+  hosts:
+    nextcloud_vm:
+      ansible_host: 192.168.122.100
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: "~/.ssh/id_rsa"
+      ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+      vm_created: "2025-11-01T18:19:08Z"
+      vm_ram: 2048
+      vm_vcpus: 1
+      vm_disk_size: "10G"
+      vm_os_variant: "ubuntu20.04"
+      description: "VM created via ANPR service integration"

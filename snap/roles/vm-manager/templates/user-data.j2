@@ -1,0 +1,37 @@
+#cloud-config
+users:
+  - name: {{ vm_user }}
+{% if ssh_public_key_path is defined and ssh_public_key_path != "" and ssh_public_key_content is defined %}
+    ssh_authorized_keys:
+      - {{ ssh_public_key_content.content | b64decode | trim }}
+{% endif %}
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    groups: {{ vm_user_groups | join(', ') }}
+    shell: {{ vm_user_shell }}
+{% if ssh_public_key_path is not defined or ssh_public_key_path == "" %}
+    # No SSH key provided - you may need to set a password or use console access
+    lock_passwd: false
+{% endif %}
+
+# Set hostname
+hostname: {{ vm_hostname }}
+
+# Update packages
+package_update: true
+
+# Install basic packages
+packages:
+  - curl
+  - wget
+  - vim
+  - git
+  - htop
+
+# Enable password authentication (optional, SSH key is preferred)
+ssh_pwauth: false
+
+# Reboot after setup (optional)
+# power_state:
+#   mode: reboot
+#   delay: now
+#   message: Rebooting after cloud-init setup

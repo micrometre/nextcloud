@@ -18,7 +18,7 @@ all:
       # nextcloud_letsencrypt_email: "admin@example.com"
       
       # Optional: Add IP address to trusted domains
-      # nextcloud_ip_address: "{{ ansible_default_ipv4.address }}"
+      nextcloud_ip_address: "{{ ansible_default_ipv4.address }}"
       
       # Firewall configuration
       nextcloud_configure_firewall: true

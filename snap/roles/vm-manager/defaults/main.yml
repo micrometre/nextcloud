@@ -1,0 +1,47 @@
+---
+# Default variables for vm-manager role
+
+# VM configuration
+vm_name: nextcloud_vm
+vm_hostname: nextcloud-vm
+vm_ram: 2048
+vm_vcpus: 1
+vm_disk_size: 10G
+
+# Ubuntu cloud image settings
+ubuntu_version: noble
+ubuntu_cloud_image_url: "http://cloud-images.ubuntu.com/{{ ubuntu_version }}/current/{{ ubuntu_version }}-server-cloudimg-amd64.img"
+ubuntu_cloud_image_filename: "{{ ubuntu_version }}-server-cloudimg-amd64.img"
+
+# Libvirt storage paths
+libvirt_images_path: /var/lib/libvirt/images
+work_directory: "{{ ansible_env.HOME }}/vm-workspace"
+vm_workspace_dir: "{{ work_directory }}/{{ vm_name }}"
+shared_images_dir: "{{ ansible_env.HOME }}/vm-images"
+
+# Network configuration
+vm_network: bridge=virbr0,model=virtio
+vm_graphics: vnc,listen=0.0.0.0
+vm_os_variant: ubuntu20.04
+
+# VM IP configuration (static only)
+vm_static_ip: "192.168.122.100"
+vm_gateway: "192.168.122.1"
+vm_netmask: "255.255.255.0"
+vm_dns_servers:
+  - "8.8.8.8"
+  - "8.8.4.4"
+
+# Cloud-init configuration
+vm_user: ubuntu
+vm_user_shell: /bin/bash
+vm_user_groups: 
+  - sudo
+
+# SSH configuration - will be auto-detected if not specified
+ssh_public_key_file: ""
+generate_ssh_key: true
+
+# VM management
+force_recreate: false
+cleanup_on_failure: true

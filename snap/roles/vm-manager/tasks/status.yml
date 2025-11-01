@@ -1,0 +1,48 @@
+---
+# VM status and information tasks
+
+- name: Get VM list
+  shell: virsh list --all
+  register: vm_list
+  changed_when: false
+
+- name: Display all VMs
+  debug:
+    msg: "{{ vm_list.stdout_lines }}"
+
+- name: Check specific VM status
+  shell: virsh domstate {{ vm_name }}
+  register: vm_state
+  failed_when: false
+  changed_when: false
+
+- name: Display VM state
+  debug:
+    msg: "VM '{{ vm_name }}' state: {{ vm_state.stdout if vm_state.rc == 0 else 'not found' }}"
+
+- name: Get VM IP address (if running)
+  shell: virsh domifaddr {{ vm_name }}
+  register: vm_ip
+  failed_when: false
+  changed_when: false
+  when: vm_state.rc == 0 and vm_state.stdout == "running"
+
+- name: Display VM IP
+  debug:
+    msg: "{{ vm_ip.stdout_lines }}"
+  when: vm_ip is defined and vm_ip.rc == 0
+
+- name: Get VNC display port
+  shell: virsh vncdisplay {{ vm_name }}
+  register: vnc_port
+  failed_when: false
+  changed_when: false
+  when: vm_state.rc == 0 and vm_state.stdout == "running"
+
+- name: Display VNC connection info
+  debug:
+    msg: "VNC available on: {{ ansible_default_ipv4.address }}{{ vnc_port.stdout }}"
+  when: vnc_port is defined and vnc_port.rc == 0
+
+- name: Include workspace information
+  include_tasks: workspace.yml

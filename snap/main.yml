@@ -9,3 +9,22 @@
   roles:
     - fail2ban
   tags: setup_fail2ban
+
+- name: playbook to setup virtualization (QEMU/KVM/libvirt)
+  hosts: localhost
+  roles:
+    - virtualization
+  tags: setup_virtualization
+
+- name: playbook to create and manage VMs
+  hosts: localhost
+  roles:
+    - vm-manager
+  tags: create_vm
+
+- name: playbook to setup vm with nextcloud and fail2ban
+  hosts: nextcloud_vm
+  roles:
+    - nextcloud
+    - fail2ban
+  tags: vm_setup_all

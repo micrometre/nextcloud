@@ -1,0 +1,33 @@
+---
+# VM workspace management tasks
+
+- name: List VM workspace contents
+  find:
+    paths: "{{ vm_workspace_dir }}"
+    file_type: any
+  register: workspace_contents
+  when: vm_workspace_dir is defined
+
+- name: Display workspace contents
+  debug:
+    msg: |
+      VM '{{ vm_name }}' workspace: {{ vm_workspace_dir }}
+      
+      Files:
+      {% for file in workspace_contents.files %}
+      - {{ file.path | basename }} ({{ file.size | filesizeformat }})
+      {% endfor %}
+  when: 
+    - workspace_contents is defined
+    - workspace_contents.files is defined
+
+- name: Show workspace disk usage
+  shell: du -sh "{{ vm_workspace_dir }}"
+  register: workspace_usage
+  when: vm_workspace_dir is defined
+  changed_when: false
+
+- name: Display workspace disk usage
+  debug:
+    msg: "Workspace disk usage: {{ workspace_usage.stdout }}"
+  when: workspace_usage is defined and workspace_usage.stdout is defined

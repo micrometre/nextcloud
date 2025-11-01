@@ -1,0 +1,36 @@
+---
+# VM workspace overview tasks
+
+- name: Get workspace overview
+  shell: |
+    echo "=== VM Workspace Overview ==="
+    echo "Main workspace: {{ work_directory }}"
+    echo ""
+    if [ -d "{{ work_directory }}" ]; then
+      echo "Total workspace usage:"
+      du -sh "{{ work_directory }}"
+      echo ""
+      echo "VM Directories:"
+      for vm_dir in "{{ work_directory }}"/*; do
+        if [ -d "$vm_dir" ]; then
+          vm_name=$(basename "$vm_dir")
+          size=$(du -sh "$vm_dir" | cut -f1)
+          echo "  $vm_name: $size"
+        fi
+      done
+      echo ""
+      echo "Detailed structure:"
+      if command -v tree >/dev/null 2>&1; then
+        tree "{{ work_directory }}" -h
+      else
+        find "{{ work_directory }}" -type f -exec ls -lh {} \;
+      fi
+    else
+      echo "No workspace directory found"
+    fi
+  register: workspace_overview
+  changed_when: false
+
+- name: Display workspace overview
+  debug:
+    msg: "{{ workspace_overview.stdout_lines }}"

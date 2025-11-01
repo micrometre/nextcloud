@@ -6,10 +6,10 @@ nextcloud_admin_user: "admin"
 nextcloud_admin_password: "changeme123"
 
 # Domain configuration (REQUIRED for Let's Encrypt SSL)
-nextcloud_domain: "ubuntu"
+nextcloud_domain: "nextcloud-vm"
 
 # Optional: IP address to add to trusted domains
-# nextcloud_ip_address: "192.168.1.100"
+nextcloud_ip_address: "192.168.122.100"
 
 # SSL configuration
 # Options: "letsencrypt", "selfsigned", or "none"

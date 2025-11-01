@@ -1,0 +1,414 @@
+---
+# Main tasks for vm-manager role
+
+# Handle different VM actions
+- name: Include cleanup tasks
+  include_tasks: cleanup.yml
+  when: vm_cleanup | default(false) | bool
+
+- name: Include status tasks
+  include_tasks: status.yml
+  when: vm_action | default('create') == 'status'
+
+- name: Skip VM creation tasks if only checking status or cleaning up
+  meta: end_play
+  when: (vm_action | default('create') == 'status') or (vm_cleanup | default(false) | bool)
+
+- name: Create work directory
+  file:
+    path: "{{ work_directory }}"
+    state: directory
+    mode: '0755'
+
+- name: Create VM-specific workspace directory
+  file:
+    path: "{{ vm_workspace_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Generate SSH key if requested and none exists
+  shell: ssh-keygen -t ed25519 -C "{{ ansible_user_id }}@{{ ansible_hostname }}" -f ~/.ssh/id_ed25519 -N ""
+  args:
+    creates: ~/.ssh/id_ed25519
+  when: 
+    - generate_ssh_key | bool
+    - ssh_public_key_path is defined
+    - ssh_public_key_path == ""
+    - not ansible_check_mode
+
+- name: Re-check for SSH keys after generation
+  stat:
+    path: "{{ ansible_env.HOME }}/.ssh/id_ed25519.pub"
+  register: generated_key_check
+  when: 
+    - generate_ssh_key | bool
+    - ssh_public_key_path is defined  
+    - ssh_public_key_path == ""
+
+- name: Update SSH key path if key was generated
+  set_fact:
+    ssh_public_key_path: "{{ ansible_env.HOME }}/.ssh/id_ed25519.pub"
+  when:
+    - generate_ssh_key | bool
+    - generated_key_check is defined
+    - generated_key_check is not skipped
+    - generated_key_check.stat is defined
+    - generated_key_check.stat.exists
+
+- name: Read SSH public key (retry after generation)
+  slurp:
+    src: "{{ ssh_public_key_path }}"
+  register: ssh_public_key_content
+  when: 
+    - generate_ssh_key | bool
+    - ssh_public_key_path is defined
+    - ssh_public_key_path != ""
+    - ssh_public_key_content is not defined
+    - generated_key_check is defined
+    - generated_key_check is not skipped
+
+- name: Check for SSH public key
+  stat:
+    path: "{{ ssh_public_key_file }}"
+  register: ssh_key_stat
+  when: ssh_public_key_file != ""
+
+- name: Check for alternative SSH key locations
+  stat:
+    path: "{{ item }}"
+  register: ssh_key_alternatives
+  loop:
+    - "{{ ansible_env.HOME }}/.ssh/id_ed25519.pub"
+    - "{{ ansible_env.HOME }}/.ssh/id_rsa.pub"
+    - "{{ ansible_env.HOME }}/.ssh/id_ecdsa.pub"
+  when: ssh_public_key_file == "" or (ssh_key_stat is defined and not ssh_key_stat.stat.exists)
+
+- name: Find first existing SSH key
+  set_fact:
+    found_ssh_key: "{{ item.stat.path }}"
+  loop: "{{ ssh_key_alternatives.results | default([]) }}"
+  when: 
+    - item.stat.exists
+    - found_ssh_key is not defined
+
+- name: Set SSH public key path
+  set_fact:
+    ssh_public_key_path: >-
+      {%- if ssh_public_key_file != "" and ssh_key_stat is defined and ssh_key_stat.stat.exists -%}
+      {{ ssh_public_key_file }}
+      {%- elif found_ssh_key is defined -%}
+      {{ found_ssh_key }}
+      {%- else -%}
+      
+      {%- endif -%}
+
+- name: Ensure ssh_public_key_path is defined
+  set_fact:
+    ssh_public_key_path: "{{ ssh_public_key_path | default('') }}"
+
+- name: Read SSH public key
+  slurp:
+    src: "{{ ssh_public_key_path }}"
+  register: ssh_public_key_content
+  when: 
+    - ssh_public_key_path is defined
+    - ssh_public_key_path != ""
+
+- name: Warn if no SSH key found
+  debug:
+    msg: "WARNING: No SSH public key found. VM may not be accessible via SSH."
+  when: 
+    - ssh_public_key_path is defined
+    - ssh_public_key_path == ""
+
+- name: Create shared images directory
+  file:
+    path: "{{ shared_images_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Check if Ubuntu cloud image already exists in shared directory
+  stat:
+    path: "{{ shared_images_dir }}/{{ ubuntu_cloud_image_filename }}"
+  register: shared_image_stat
+
+- name: Download Ubuntu cloud image to shared directory (only if not exists)
+  get_url:
+    url: "{{ ubuntu_cloud_image_url }}"
+    dest: "{{ shared_images_dir }}/{{ ubuntu_cloud_image_filename }}"
+    mode: '0644'
+  register: download_result
+  when: not shared_image_stat.stat.exists
+
+- name: Copy Ubuntu cloud image from shared directory to VM workspace
+  copy:
+    src: "{{ shared_images_dir }}/{{ ubuntu_cloud_image_filename }}"
+    dest: "{{ vm_workspace_dir }}/{{ ubuntu_cloud_image_filename }}"
+    mode: '0644'
+    remote_src: yes
+
+- name: Display image source info
+  debug:
+    msg: >-
+      {%- if shared_image_stat.stat.exists -%}
+      Using cached Ubuntu cloud image from {{ shared_images_dir }}/{{ ubuntu_cloud_image_filename }}
+      {%- else -%}
+      Downloaded fresh Ubuntu cloud image to {{ shared_images_dir }}/{{ ubuntu_cloud_image_filename }}
+      {%- endif -%}
+
+- name: Create VM disk image
+  shell: >
+    qemu-img create -b {{ vm_workspace_dir }}/{{ ubuntu_cloud_image_filename }}
+    -f qcow2 -F qcow2 {{ vm_workspace_dir }}/{{ vm_name }}.img {{ vm_disk_size }}
+  args:
+    creates: "{{ vm_workspace_dir }}/{{ vm_name }}.img"
+
+- name: Create cloud-init user-data
+  template:
+    src: user-data.j2
+    dest: "{{ vm_workspace_dir }}/user-data"
+    mode: '0644'
+
+- name: Create cloud-init meta-data
+  template:
+    src: meta-data.j2
+    dest: "{{ vm_workspace_dir }}/meta-data"
+    mode: '0644'
+
+- name: Create cloud-init network-config
+  template:
+    src: network-config.j2
+    dest: "{{ vm_workspace_dir }}/network-config"
+    mode: '0644'
+
+- name: Create cloud-init ISO
+  shell: >
+    genisoimage -output {{ vm_workspace_dir }}/cidata.iso 
+    -V cidata -r -J {{ vm_workspace_dir }}/user-data {{ vm_workspace_dir }}/meta-data {{ vm_workspace_dir }}/network-config
+  args:
+    creates: "{{ vm_workspace_dir }}/cidata.iso"
+
+- name: Check if VM already exists
+  shell: virsh list --all | grep -q "{{ vm_name }}"
+  register: vm_exists
+  failed_when: false
+  changed_when: false
+
+- name: Stop and remove existing VM if force_recreate is true
+  block:
+    - name: Shutdown existing VM
+      shell: virsh shutdown {{ vm_name }}
+      ignore_errors: yes
+      when: vm_exists.rc == 0
+
+    - name: Wait for VM shutdown
+      wait_for:
+        timeout: 30
+      when: vm_exists.rc == 0
+
+    - name: Force destroy VM if still running
+      shell: virsh destroy {{ vm_name }}
+      ignore_errors: yes
+      when: vm_exists.rc == 0
+
+    - name: Remove existing VM
+      shell: virsh undefine {{ vm_name }} --remove-all-storage
+      when: vm_exists.rc == 0
+
+  when: 
+    - force_recreate
+    - vm_exists.rc == 0
+
+- name: Fail if VM exists and force_recreate is false
+  fail:
+    msg: "VM '{{ vm_name }}' already exists. Set force_recreate=true to recreate it."
+  when:
+    - vm_exists.rc == 0
+    - not force_recreate
+
+- name: Ensure libvirt images directory exists
+  file:
+    path: "{{ libvirt_images_path }}"
+    state: directory
+    owner: libvirt-qemu
+    group: libvirt-qemu
+    mode: '0755'
+  become: yes
+
+- name: Copy base image to libvirt storage
+  copy:
+    src: "{{ vm_workspace_dir }}/{{ ubuntu_cloud_image_filename }}"
+    dest: "{{ libvirt_images_path }}/{{ ubuntu_cloud_image_filename }}"
+    owner: libvirt-qemu
+    group: libvirt-qemu
+    mode: '0644'
+    remote_src: yes
+  become: yes
+
+- name: Create VM disk in libvirt storage
+  shell: >
+    qemu-img create -b {{ libvirt_images_path }}/{{ ubuntu_cloud_image_filename }}
+    -f qcow2 -F qcow2 {{ libvirt_images_path }}/{{ vm_name }}.img {{ vm_disk_size }}
+  become: yes
+
+- name: Set ownership of VM disk
+  file:
+    path: "{{ libvirt_images_path }}/{{ vm_name }}.img"
+    owner: libvirt-qemu
+    group: libvirt-qemu
+    mode: '0644'
+  become: yes
+
+- name: Copy cloud-init ISO to libvirt storage
+  copy:
+    src: "{{ vm_workspace_dir }}/cidata.iso"
+    dest: "{{ libvirt_images_path }}/cidata-{{ vm_name }}.iso"
+    owner: libvirt-qemu
+    group: libvirt-qemu
+    mode: '0644'
+    remote_src: yes
+  become: yes
+
+- name: Create VM
+  shell: >
+    virt-install --name={{ vm_name }} --ram={{ vm_ram }} --vcpus={{ vm_vcpus }} --import
+    --disk path={{ libvirt_images_path }}/{{ vm_name }}.img,format=qcow2
+    --disk path={{ libvirt_images_path }}/cidata-{{ vm_name }}.iso,device=cdrom
+    --os-variant={{ vm_os_variant }}
+    --network {{ vm_network }}
+    --graphics {{ vm_graphics }}
+    --noautoconsole
+  register: vm_creation_result
+
+- name: Display VM creation result
+  debug:
+    msg: "VM '{{ vm_name }}' created successfully!"
+
+- name: Get VM status
+  shell: virsh list --all | grep {{ vm_name }}
+  register: vm_status
+  changed_when: false
+
+- name: Display VM status
+  debug:
+    msg: "{{ vm_status.stdout }}"
+
+- name: Create VM inventory entry
+  blockinfile:
+    path: "{{ vm_workspace_dir }}/vm_inventory.yml"
+    create: yes
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - {{ vm_name }}"
+    mode: '0644'
+    block: |
+      {{ vm_name }}:
+        ansible_host: {{ vm_static_ip }}
+        ansible_user: {{ vm_user }}
+        ansible_ssh_private_key_file: "{{ ssh_private_key_path | default('~/.ssh/id_rsa') }}"
+        ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+        vm_created: "{{ ansible_date_time.iso8601 }}"
+        vm_ram: {{ vm_ram }}
+        vm_vcpus: {{ vm_vcpus }}
+        vm_disk_size: "{{ vm_disk_size }}"
+        vm_os_variant: "{{ vm_os_variant }}"
+        description: "VM created via ANPR service integration"
+
+- name: Create individual VM inventory file
+  copy:
+    content: |
+      # Individual inventory for VM: {{ vm_name }}
+      # Created: {{ ansible_date_time.iso8601 }}
+      all:
+        hosts:
+          {{ vm_name }}:
+            ansible_host: {{ vm_static_ip }}
+            ansible_user: ubuntu
+            ansible_ssh_private_key_file: "~/.ssh/id_rsa"
+            ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+            vm_created: "{{ ansible_date_time.iso8601 }}"
+            vm_ram: {{ vm_ram }}
+            vm_vcpus: {{ vm_vcpus }}
+            vm_disk_size: "{{ vm_disk_size }}"
+            vm_os_variant: "{{ vm_os_variant }}"
+            description: "VM created via ANPR service integration"
+    dest: "{{ playbook_dir }}/inventory/vm-{{ vm_name }}.yml"
+    mode: '0644'
+
+- name: Check if master created_vms.yml exists
+  stat:
+    path: "{{ playbook_dir }}/inventory/created_vms.yml"
+  register: master_inventory_stat
+
+- name: Initialize master inventory if it doesn't exist
+  copy:
+    content: |
+      # Master inventory for all created VMs
+      # Updated: {{ ansible_date_time.iso8601 }}
+      all:
+        children:
+          created_vms:
+            hosts:
+    dest: "{{ playbook_dir }}/inventory/created_vms.yml"
+    mode: '0644'
+  when: not master_inventory_stat.stat.exists
+
+- name: Add VM to master created_vms inventory
+  blockinfile:
+    path: "{{ playbook_dir }}/inventory/created_vms.yml"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - {{ vm_name }}"
+    insertafter: "hosts:"
+    content: |
+              {{ vm_name }}:
+                ansible_host: {{ vm_static_ip }}
+                ansible_user: ubuntu
+                ansible_ssh_private_key_file: "~/.ssh/id_rsa"
+                ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+                vm_created: "{{ ansible_date_time.iso8601 }}"
+                vm_ram: {{ vm_ram }}
+                vm_vcpus: {{ vm_vcpus }}
+                vm_disk_size: "{{ vm_disk_size }}"
+                vm_os_variant: "{{ vm_os_variant }}"
+                description: "VM created via ANPR service integration"
+    mode: '0644'
+
+- name: Display connection information
+  debug:
+    msg: |
+      VM created successfully!
+      Name: {{ vm_name }}
+      RAM: {{ vm_ram }}MB
+      vCPUs: {{ vm_vcpus }}
+      Static IP: {{ vm_static_ip }}
+      Gateway: {{ vm_gateway }}
+      DNS Servers: {{ vm_dns_servers }}
+      
+      VM workspace: {{ vm_workspace_dir }}
+      Contains:
+      - {{ ubuntu_cloud_image_filename }} (Ubuntu cloud image - copied from shared cache)
+      - {{ vm_name }}.img (VM disk image)
+      - user-data, meta-data (cloud-init config)
+      - cidata.iso (cloud-init ISO)
+      - vm_inventory.yml (Individual VM inventory)
+      
+      Shared images directory: {{ shared_images_dir }}
+      Contains cached cloud images for faster VM creation.
+      
+      Inventory files created:
+      - {{ vm_workspace_dir }}/vm_inventory.yml (VM workspace inventory)
+      - {{ playbook_dir }}/inventory/vm-{{ vm_name }}.yml (Individual VM inventory)
+      - {{ playbook_dir }}/inventory/created_vms.yml (Master inventory - updated)
+      
+      You can connect via:
+      - VNC (check 'virsh vncdisplay {{ vm_name }}')
+      - SSH: ssh ubuntu@{{ vm_static_ip }}
+      
+      To get VM IP: virsh domifaddr {{ vm_name }}
+      To access console: virsh console {{ vm_name }}
+      
+      To run ansible against this VM only:
+      ansible-playbook -i {{ playbook_dir }}/inventory/vm-{{ vm_name }}.yml your-playbook.yml
+      
+      To run against this VM from master inventory:
+      ansible-playbook -i {{ playbook_dir }}/inventory/created_vms.yml your-playbook.yml --limit {{ vm_name }}
+      
+      To run against all created VMs:
+      ansible-playbook -i {{ playbook_dir }}/inventory/created_vms.yml your-playbook.yml --limit created_vms
