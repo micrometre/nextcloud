@@ -5,6 +5,17 @@
 # by monitoring the Nextcloud log file for failed login attempts and
 # untrusted domain access attempts.
 
+[DEFAULT]
+{% if fail2ban_email_enabled %}
+# Email notification settings
+destemail = {{ fail2ban_email_recipient }}
+sendername = Fail2ban
+action = %(action_mwl)s
+{% else %}
+# Email notifications disabled
+action = iptables-multiport
+{% endif %}
+
 [nextcloud]
 backend = {{ fail2ban_backend }}
 enabled = {{ fail2ban_nextcloud_enabled | lower }}
@@ -17,4 +28,7 @@ findtime = {{ fail2ban_findtime }}
 logpath = {{ fail2ban_nextcloud_logpath }}
 {% if fail2ban_ignoreip is defined and fail2ban_ignoreip %}
 ignoreip = {{ fail2ban_ignoreip | join(' ') }}
+{% endif %}
+{% if fail2ban_email_enabled %}
+action = %(action_mwl)s
 {% endif %}

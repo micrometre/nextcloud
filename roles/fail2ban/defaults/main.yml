@@ -36,3 +36,22 @@ fail2ban_nextcloud_logpath: "auto"
 fail2ban_ignoreip: 
   - "127.0.0.1/8"
   - "::1"
+
+# Email notification settings
+# Enable email notifications for ban events
+fail2ban_email_enabled: false
+
+# Email recipient for ban notifications
+fail2ban_email_recipient: "root@localhost"
+
+# Email sender address
+fail2ban_email_sender: "fail2ban@localhost"
+
+# Fail2ban action to use
+# Common options:
+#   iptables-multiport     - Ban with iptables only
+#   iptables-multiport[name=sshd, port=ssh]
+#   %(action_mwl)s         - Ban + email with whois + tail of log
+#   %(action_mw)s          - Ban + email with whois
+#   %(action_m)s           - Ban + email only
+fail2ban_action: "iptables-multiport"

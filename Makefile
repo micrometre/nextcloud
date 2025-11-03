@@ -77,6 +77,12 @@ clean_full:
 		echo "Removed master inventory file"; \
 	fi
 	@echo "Complete cleanup finished!"
+
+
+# Deploy Nextcloud and fail2ban in virsh VMs
+setup-vm-nextcloud: 
+	ansible-playbook -i inventory/vm-nextcloud_vm.yml main.yml --tags vm_setup_all
+# Debug target to print all host variables
 vars:
 	ansible -m debug -a var=hostvars all
 

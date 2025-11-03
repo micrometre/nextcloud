@@ -47,6 +47,12 @@ fail2ban_nextcloud_logpath: "auto"
 fail2ban_ignoreip:
   - "127.0.0.1/8"
   - "::1"
+
+# Email Notification Settings
+fail2ban_email_enabled: false
+fail2ban_email_recipient: "root@localhost"
+fail2ban_email_sender: "fail2ban@localhost"
+fail2ban_action: "iptables-multiport"
 ```
 
 ## Example Playbook
@@ -103,6 +109,33 @@ If auto-detection fails, specify the log path manually:
 ```yaml
 fail2ban_nextcloud_logpath: "/var/www/nextcloud/data/nextcloud.log"
 ```
+
+### Email Notifications (Requires Sendmail Role)
+
+Enable email alerts when IPs are banned:
+
+```yaml
+# Basic email notifications
+- hosts: localhost
+  roles:
+    - sendmail
+    - role: fail2ban
+      vars:
+        fail2ban_email_enabled: true
+        fail2ban_email_recipient: "admin@localhost"
+
+# With custom action (more detailed emails with whois info and log tail)
+- hosts: localhost
+  roles:
+    - sendmail
+    - role: fail2ban
+      vars:
+        fail2ban_email_enabled: true
+        fail2ban_email_recipient: "alerts@localhost"
+        fail2ban_action: "%(action_mwl)s"  # Ban + Email + Whois + Log tail
+```
+
+**Note:** Email notifications require the `sendmail` role to be run first. See the [Sendmail + Fail2ban Integration Guide](../../docs/SENDMAIL_FAIL2BAN_INTEGRATION.md) for complete setup instructions.
 
 ## Post-Installation Commands
 
@@ -193,7 +226,10 @@ sudo fail2ban-client reload
 
 ## Dependencies
 
-None. This role works independently but is designed to complement the Nextcloud role.
+The `fail2ban` role has an optional dependency:
+- **sendmail**: Only required if `fail2ban_email_enabled: true`
+
+The fail2ban role will automatically include the sendmail role if email notifications are enabled.
 
 ## License
 

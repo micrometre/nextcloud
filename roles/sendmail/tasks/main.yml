@@ -1,0 +1,109 @@
+---
+# tasks file for sendmail
+
+- name: Update package cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: yes
+
+- name: Install mail packages
+  ansible.builtin.apt:
+    name: "{{ [sendmail_package] + sendmail_additional_packages }}"
+    state: present
+  become: yes
+
+- name: Ensure mail spool directory exists
+  ansible.builtin.file:
+    path: /var/mail
+    state: directory
+    mode: '1777'
+  become: yes
+  when: sendmail_create_mail_spool | bool
+
+- name: Create /root/.forward for root mail forwarding
+  ansible.builtin.lineinfile:
+    path: /root/.forward
+    line: "{{ sendmail_root_forward }}"
+    create: yes
+    owner: root
+    group: root
+    mode: '0600'
+  become: yes
+  when: sendmail_root_forward | length > 0
+
+- name: Ensure mail log directory exists
+  ansible.builtin.file:
+    path: "{{ sendmail_mail_log | dirname }}"
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Create mail log file if it doesn't exist
+  ansible.builtin.file:
+    path: "{{ sendmail_mail_log }}"
+    state: touch
+    mode: '0640'
+  become: yes
+  changed_when: false
+
+- name: Start and enable mail service
+  ansible.builtin.systemd:
+    name: "{{ 'postfix' if sendmail_package == 'postfix' else 'sendmail' }}"
+    state: started
+    enabled: yes
+  become: yes
+  failed_when: false
+
+- name: Create test mail script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/test-mail
+    content: |
+      #!/bin/bash
+      # Test mail script for sendmail configuration
+      # Usage: test-mail <recipient> [subject] [message]
+      
+      RECIPIENT="${1:-{{ sendmail_local_user }}}"
+      SUBJECT="${2:-Test Email from Sendmail}"
+      MESSAGE="${3:-This is a test email to verify sendmail configuration.}"
+      
+      echo -e "${MESSAGE}" | mail -s "${SUBJECT}" "${RECIPIENT}"
+      
+      if [ $? -eq 0 ]; then
+          echo "✓ Email sent successfully to ${RECIPIENT}"
+          echo "  Subject: ${SUBJECT}"
+      else
+          echo "✗ Failed to send email to ${RECIPIENT}"
+          exit 1
+      fi
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+
+- name: Display sendmail setup summary
+  ansible.builtin.debug:
+    msg:
+      - "Sendmail/Mail configuration completed!"
+      - ""
+      - "Configuration Details:"
+      - "  Package: {{ sendmail_package }}"
+      - "  Local User: {{ sendmail_local_user }}"
+      - "  Mail Log: {{ sendmail_mail_log }}"
+      - "  Root Forward: {{ sendmail_root_forward if sendmail_root_forward else 'Disabled' }}"
+      - ""
+      - "Testing Email:"
+      - "  Send test email: test-mail"
+      - "  Send to specific user: test-mail <username>"
+      - "  Check mail: mail"
+      - "  View mail log: sudo tail -f {{ sendmail_mail_log }}"
+      - ""
+      - "Usage Examples:"
+      - "  # Send test email to current user"
+      - "  test-mail"
+      - ""
+      - "  # Send test email to root"
+      - "  test-mail root 'Alert Test' 'This is a test alert'"
+      - ""
+      - "  # Read received mail"
+      - "  mail"

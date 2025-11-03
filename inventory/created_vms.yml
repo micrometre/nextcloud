@@ -1,5 +1,5 @@
 # Master inventory for all created VMs
-# Updated: 2025-11-01T18:19:08Z
+# Updated: 2025-11-03T01:00:40Z
 all:
   children:
     created_vms:
@@ -10,7 +10,7 @@ nextcloud_vm:
   ansible_user: ubuntu
   ansible_ssh_private_key_file: "~/.ssh/id_rsa"
   ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
-  vm_created: "2025-11-01T18:19:08Z"
+  vm_created: "2025-11-03T01:00:40Z"
   vm_ram: 2048
   vm_vcpus: 1
   vm_disk_size: "10G"

@@ -1,6 +1,11 @@
 ---
 # tasks file for fail2ban
 
+- name: Include sendmail role if email notifications enabled
+  ansible.builtin.include_role:
+    name: sendmail
+  when: fail2ban_email_enabled | bool
+
 - name: Install fail2ban package
   ansible.builtin.apt:
     name: fail2ban
@@ -119,7 +124,10 @@
       - "Max retries: {{ fail2ban_maxretry }}"
       - "Ban time: {{ fail2ban_bantime }} seconds ({{ (fail2ban_bantime / 3600) | int }} hours)"
       - "Find time: {{ fail2ban_findtime }} seconds ({{ (fail2ban_findtime / 3600) | int }} hours)"
+      - "Email notifications: {{ 'ENABLED - Recipient: ' + fail2ban_email_recipient if fail2ban_email_enabled else 'DISABLED' }}"
       - ""
       - "Check jail status: sudo fail2ban-client status nextcloud"
       - "View banned IPs: sudo fail2ban-client get nextcloud banip"
       - "Unban an IP: sudo fail2ban-client set nextcloud unbanip <IP>"
+      - ""
+      - "{% if fail2ban_email_enabled %}Email Notifications: Test with 'test-mail' command{% endif %}"

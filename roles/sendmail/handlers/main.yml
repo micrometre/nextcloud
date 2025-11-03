@@ -1,0 +1,21 @@
+---
+# handlers file for sendmail
+
+- name: restart sendmail
+  ansible.builtin.systemd:
+    name: sendmail
+    state: restarted
+  become: yes
+  listen: "restart sendmail"
+
+- name: restart postfix
+  ansible.builtin.systemd:
+    name: postfix
+    state: restarted
+  become: yes
+  listen: "restart postfix"
+
+- name: reload mail aliases
+  ansible.builtin.command: newaliases
+  become: yes
+  listen: "reload mail aliases"

@@ -4,6 +4,12 @@
     - nextcloud
   tags: setup_nextcloud
 
+- name: playbook to setup sendmail for email notifications
+  hosts: localhost
+  roles:
+    - sendmail
+  tags: setup_sendmail
+
 - name: playbook to setup fail2ban protection for nextcloud
   hosts: localhost
   roles:
@@ -22,9 +28,10 @@
     - vm-manager
   tags: create_vm
 
-- name: playbook to setup vm with nextcloud and fail2ban
+- name: playbook to setup vm with nextcloud, sendmail and fail2ban
   hosts: nextcloud_vm
   roles:
     - nextcloud
+    - sendmail
     - fail2ban
   tags: vm_setup_all

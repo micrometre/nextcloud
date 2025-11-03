@@ -1,0 +1,39 @@
+---
+# defaults file for sendmail
+
+# Enable sendmail role
+sendmail_enabled: true
+
+# Mail package to install (mailutils or postfix)
+sendmail_package: mailutils
+
+# System user for receiving test emails
+sendmail_local_user: "{{ ansible_user_id }}"
+
+# Email relay host (empty = local delivery only)
+sendmail_relay_host: ""
+
+# Email relay port
+sendmail_relay_port: 25
+
+# Enable SMTP authentication
+sendmail_smtp_auth: false
+
+# SMTP username (if authentication enabled)
+sendmail_smtp_user: ""
+
+# SMTP password (if authentication enabled)
+sendmail_smtp_password: ""
+
+# Additional mail packages to install (e.g., postfix, exim4)
+sendmail_additional_packages:
+  - bsd-mailx
+
+# Root email forward (for testing - leave empty to disable)
+sendmail_root_forward: "{{ sendmail_local_user }}"
+
+# Create test mail directory
+sendmail_create_mail_spool: true
+
+# Path to mail delivery log
+sendmail_mail_log: "/var/log/mail.log"
