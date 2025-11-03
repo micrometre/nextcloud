@@ -39,7 +39,7 @@ fail2ban_ignoreip:
 
 # Email notification settings
 # Enable email notifications for ban events
-fail2ban_email_enabled: false
+fail2ban_email_enabled: true
 
 # Email recipient for ban notifications
 fail2ban_email_recipient: "root@localhost"
